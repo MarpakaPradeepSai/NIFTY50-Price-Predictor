@@ -1,88 +1,75 @@
-import streamlit as st
 import numpy as np
 import pandas as pd
-import yfinance as yf
+import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
-from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
 
-# Load the trained model
-model_filename = 'LSTM_NIFTY_10(169.54).h5'  # Use your model's filename here
-try:
-    model = load_model(model_filename)
-    st.success("LSTM model loaded successfully.")
-except Exception as e:
-    st.error(f"Error loading LSTM model: {e}")
+# Load the LSTM model
+model = load_model("LSTM_NIFTY_10(169.54).h5")
 
-# Function to create dataset
-def create_dataset(data, look_back=1):
-    X = []
-    for i in range(len(data) - look_back):
-        a = data[i:(i + look_back)]
+# Load and prepare your data
+def load_data():
+    # Replace with your actual data loading logic
+    df = pd.read_csv('your_data.csv', parse_dates=['Date'], index_col='Date')
+    return df
+
+# Function to create dataset for LSTM
+def create_dataset(dataset, look_back=1):
+    X, Y = [], []
+    for i in range(len(dataset) - look_back - 1):
+        a = dataset[i:(i + look_back), 0]
         X.append(a)
-    return np.array(X)
+        Y.append(dataset[i + look_back, 0])
+    return np.array(X), np.array(Y)
+
+# Scale data
+def scale_data(data):
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_data = scaler.fit_transform(data)
+    return scaled_data, scaler
+
+# Predict function
+def predict_price(data, look_back=10):
+    scaled_data, scaler = scale_data(data)
+    X, _ = create_dataset(scaled_data, look_back)
+    X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+    
+    predictions = model.predict(X)
+    return scaler.inverse_transform(predictions)
 
 # Streamlit app layout
-st.markdown("<h1 style='text-align: center; font-size: 49px;'>NIFTY Stock Price Predictor 📈📉💰</h1>", unsafe_allow_html=True)
+st.title("NIFTY Stock Price Prediction")
 
-# User input for past prices
-input_data = st.text_area("Input Past Prices (comma-separated):", "10000, 10100, 10200, 10300, 10400, 10500")
+# Load data
+df = load_data()
+st.write("Data Loaded Successfully")
 
-# Fixed look back period
+# Fixed look-back period
 look_back = 10
 
-# Button for prediction
-if st.button("Predict"):
-    try:
-        input_data = np.array([float(i) for i in input_data.split(',')])
-        input_data = input_data.reshape(-1, 1)
+# Show data statistics
+st.write(df.describe())
 
-        # Scale the input data
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        input_data_scaled = scaler.fit_transform(input_data)
+# Allow users to input a date range
+start_date = st.sidebar.date_input("Start Date", df.index.min())
+end_date = st.sidebar.date_input("End Date", df.index.max())
 
-        # Create dataset for the model
-        X_input = create_dataset(input_data_scaled, look_back)
-        X_input = np.reshape(X_input, (X_input.shape[0], X_input.shape[1], 1))
-
-        # Make prediction
-        prediction = model.predict(X_input)
-        prediction = scaler.inverse_transform(prediction)
-
-        # Display the prediction
-        st.subheader('Predicted Price:')
-        st.write(f"${prediction[-1][0]:.2f}")
-
-        # Plotting the input data and prediction
+# Filter data based on the selected date range
+if start_date and end_date:
+    filtered_data = df.loc[start_date:end_date]['Close'].values.reshape(-1, 1)
+    
+    if len(filtered_data) > look_back:
+        predictions = predict_price(filtered_data, look_back)
+        
+        # Plotting the results
         plt.figure(figsize=(12, 6))
-        plt.plot(range(len(input_data)), scaler.inverse_transform(input_data_scaled), label='Input Prices', color='blue')
-        plt.axhline(y=prediction[-1][0], color='red', linestyle='--', label='Predicted Price')
-        plt.title('NIFTY Price Prediction')
+        plt.plot(filtered_data[look_back:], label='Actual Price')
+        plt.plot(predictions, label='Predicted Price', linestyle='--')
+        plt.title('Actual vs Predicted Prices')
         plt.xlabel('Time')
         plt.ylabel('Stock Price')
         plt.legend()
         st.pyplot(plt)
-
-    except ValueError:
-        st.error("Please ensure all inputs are valid numbers.")
-
-# Add some styling for the button
-st.markdown(
-    """
-    <style>
-    div.stButton > button {
-        background-color: green; /* Green color for the Predict button */
-        color: white;
-    }
-    div.stButton > button:focus,
-    div.stButton > button:hover,
-    div.stButton > button:active {
-        color: white; /* Keep text white on hover, focus, and active states */
-        outline: 2px solid green; /* Green outline for the clicked button */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    else:
+        st.error("Not enough data points to predict. Please select a different date range.")
