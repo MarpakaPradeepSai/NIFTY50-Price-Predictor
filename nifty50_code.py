@@ -140,7 +140,7 @@ if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-butto
     ax2.plot(prediction_dates, predictions, marker='o', color='blue')
     ax2.set_xlabel('Date')
     ax2.set_ylabel('Predicted Price')
-    ax2.set_title(f'Predicted Stock Prices for the Next {num_days} Business Days (NIFTY50)', fontsize=10, fontweight='bold')
+    ax2.set_title(f'Predicted Index Prices for the Next {num_days} Business Days (NIFTY50)', fontsize=10, fontweight='bold')
     
     # Use DayLocator to specify spacing of tick marks and set the format for the date labels
     ax2.xaxis.set_major_locator(mdates.DayLocator(interval=1))
@@ -157,5 +157,5 @@ if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-butto
         'Date': prediction_dates,
         'Predicted Price': predictions.flatten()
     })
-    st.markdown(f"##### Predicted Stock Prices for the Next {num_days} Business Days (NIFTY50)")
+    st.markdown(f"##### Predicted Index Prices for the Next {num_days} Business Days (NIFTY50)")
     st.dataframe(prediction_df, width=600)
