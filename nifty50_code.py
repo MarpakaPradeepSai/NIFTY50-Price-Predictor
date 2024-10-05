@@ -1,70 +1,158 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import yfinance as yf
+import matplotlib.dates as mdates
 
-# Load the model
-model = load_model('LSTM_NIFTY_10(169.54).h5')
+# Load the NIFTY50 model
+model_file = 'LSTM_NIFTY_10(169.54).h5'
+try:
+    model = load_model(model_file)
+    print("NIFTY50 model loaded successfully.")
+except Exception as e:
+    print(f"Error loading NIFTY50 model: {e}")
 
-# Function to create dataset
-def create_dataset(dataset, look_back=1):
-    X = []
-    for i in range(len(dataset) - look_back):
-        a = dataset[i:(i + look_back), 0]
-        X.append(a)
-    return np.array(X)
+# Function to get the stock data
+def get_stock_data(ticker='^NSEI'):
+    data = yf.download(ticker, period='max')
+    return data
 
-# Function to make predictions
-def predict_future(data, look_back, num_days):
-    data_scaled = scaler.transform(data.reshape(-1, 1))
-    X_input = create_dataset(data_scaled, look_back)
-    X_input = np.reshape(X_input, (X_input.shape[0], X_input.shape[1], 1))
-    
-    predictions = []
-    for _ in range(num_days):
-        pred = model.predict(X_input[-1].reshape(1, look_back, 1))
-        predictions.append(pred[0, 0])
-        X_input = np.append(X_input, pred, axis=0)
-        X_input = X_input[1:]  # Shift the input window
+# Function to generate a list of business days
+def generate_business_days(start_date, num_days):
+    """Generate a list of business days starting from start_date for num_days."""
+    return pd.bdate_range(start=start_date, periods=num_days).tolist()
 
-    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
-
-# Set up Streamlit UI
-st.title("NIFTY50 Price Prediction")
-
-# User input for date range
-start_date = st.date_input("Start Date", value=pd.to_datetime('2020-01-01'))
-end_date = st.date_input("End Date", value=pd.to_datetime('today'))
-
-if st.button("Fetch Data"):
-    # Fetch historical data from Yahoo Finance
-    ticker = '^NSEI'  # NIFTY50 ticker symbol
-    df = yf.download(ticker, start=start_date, end=end_date)
-    df.reset_index(inplace=True)
-    st.write("Historical Data:")
-    st.write(df)
-
-    # Prepare the data
-    data = df['Close'].values
+# Function to make predictions for business days
+def predict_next_business_days(model, data, look_back=10, days=5):
     scaler = MinMaxScaler(feature_range=(0, 1))
-    data_scaled = scaler.fit_transform(data.reshape(-1, 1))
+    data_scaled = scaler.fit_transform(data)
+    
+    last_sequence = data_scaled[-look_back:]
+    predictions = []
 
-    look_back = 10  # Use the same look_back used during training
-    num_days = st.number_input("Enter the number of days to predict:", min_value=1, max_value=30, value=5)
+    for _ in range(days):
+        X_input = np.reshape(last_sequence, (1, look_back, 1))
+        prediction = model.predict(X_input)
+        predictions.append(prediction[0, 0])
+        
+        # Update the sequence for the next prediction
+        last_sequence = np.append(last_sequence[1:], prediction, axis=0)
+    
+    # Inverse transform the predictions to the original scale
+    predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
+    return predictions
 
-    if st.button("Predict"):
-        predictions = predict_future(data_scaled, look_back, num_days)
-        st.write("Predicted Prices for the next days:")
-        st.write(predictions)
+# Streamlit app layout
+st.markdown("<h1 style='text-align: center; font-size: 49px;'>NIFTY50 Price Predictor 📈📉💰</h1>", unsafe_allow_html=True)
 
-        # Plotting
-        plt.figure(figsize=(12, 6))
-        plt.plot(range(len(data), len(data) + num_days), predictions, label='Predicted Future Prices', marker='o')
-        plt.title('Future Price Predictions')
-        plt.xlabel('Days')
-        plt.ylabel('NIFTY50 Price')
-        plt.legend()
-        st.pyplot(plt)
+# Center the NIFTY50 logo image
+st.markdown(
+    """
+    <div style="display: flex; justify-content: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/en/3/3c/Nifty_50_Logo.png" width="560">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown("<br>", unsafe_allow_html=True)  # Add a gap between rows
+
+# User input for number of business days to forecast
+num_days = st.slider("Select number of business days to forecast", min_value=1, max_value=30, value=5)
+
+# Display current date
+current_date = datetime.now().strftime('%Y-%m-%d')
+st.write(f"Current Date: {current_date}")
+
+# Apply custom CSS to change button colors and add green outline when clicked
+st.markdown(
+    """
+    <style>
+    div.stButton > button#forecast-button {
+        background-color: green; /* Green color for the Forecast button */
+        color: white;
+    }
+    div.stButton > button#forecast-button:focus,
+    div.stButton > button#forecast-button:hover,
+    div.stButton > button#forecast-button:active {
+        color: white; /* Keep text white on hover, focus, and active states for the Forecast button */
+        outline: 2px solid green; /* Green outline for the clicked button */
+    }
+
+    div.stButton > button:not(#forecast-button) {
+        background-color: red; /* Red color for all other buttons */
+        color: white;
+    }
+    div.stButton > button:not(#forecast-button):focus,
+    div.stButton > button:not(#forecast-button):hover,
+    div.stButton > button:not(#forecast-button):active {
+        color: white; /* Keep text white on hover, focus, and active states for the other buttons */
+        outline: 2px solid green; /* Green outline for the clicked button */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Use unique key for the "Forecast" button
+if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-button'):
+    # Load stock data
+    stock = '^NSEI'  # NIFTY50 ticker
+    stock_data = get_stock_data(stock)
+    close_prices = stock_data['Close'].values.reshape(-1, 1)
+    dates = stock_data.index
+
+    # Display the historical data
+    st.markdown(f"### Historical Data for NIFTY50")
+    st.dataframe(stock_data, height=400, width=1000)
+
+    # Predict the next num_days business days
+    look_back = 10
+    predictions = predict_next_business_days(model, close_prices, look_back=look_back, days=num_days)
+    
+    # Create dates for the predictions
+    last_date = dates[-1]
+    prediction_dates = generate_business_days(last_date + timedelta(days=1), num_days)
+
+    st.write(" ")
+    
+    # Prepare data for plotting the historical and predicted prices
+    fig, ax = plt.subplots()
+    ax.plot(dates, close_prices, label='Historical Prices')
+    ax.plot(prediction_dates, predictions, label='Predicted Prices', linestyle='--', color='red')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.set_title('NIFTY50 Stock Prices', fontsize=10, fontweight='bold')
+    ax.legend()
+
+    st.pyplot(fig)
+
+    st.write(" ")
+    
+    # Plot only the predicted stock prices
+    fig2, ax2 = plt.subplots()
+    ax2.plot(prediction_dates, predictions, marker='o', color='blue')
+    ax2.set_xlabel('Date')
+    ax2.set_ylabel('Predicted Price')
+    ax2.set_title(f'Predicted Stock Prices for the Next {num_days} Business Days (NIFTY50)', fontsize=10, fontweight='bold')
+    
+    # Use DayLocator to specify spacing of tick marks and set the format for the date labels
+    ax2.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    
+    plt.xticks(rotation=45)
+    
+    st.pyplot(fig2)
+    
+    st.write(" ")
+    
+    # Show predictions in a table format
+    prediction_df = pd.DataFrame({
+        'Date': prediction_dates,
+        'Predicted Price': predictions.flatten()
+    })
+    st.markdown(f"##### Predicted Stock Prices
