@@ -61,6 +61,9 @@ st.markdown(
 
 st.markdown("<br>", unsafe_allow_html=True)  # Add a gap between rows
 
+# Set NIFTY50 as the selected stock
+stock = '^NSEI'
+
 # User input for number of business days to forecast
 num_days = st.slider("Select number of business days to forecast", min_value=1, max_value=30, value=5)
 
@@ -101,7 +104,6 @@ st.markdown(
 # Use unique key for the "Forecast" button
 if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-button'):
     # Load stock data
-    stock = '^NSEI'  # NIFTY50 ticker
     stock_data = get_stock_data(stock)
     close_prices = stock_data['Close'].values.reshape(-1, 1)
     dates = stock_data.index
@@ -155,4 +157,5 @@ if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-butto
         'Date': prediction_dates,
         'Predicted Price': predictions.flatten()
     })
-    st.markdown(f"##### Predicted Stock Prices
+    st.markdown(f"##### Predicted Stock Prices for the Next {num_days} Business Days (NIFTY50)")
+    st.dataframe(prediction_df, width=600)
