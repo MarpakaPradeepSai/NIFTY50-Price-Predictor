@@ -47,7 +47,7 @@ def predict_next_business_days(model, data, look_back=10, days=5):
     return predictions
 
 # Streamlit app layout
-st.markdown("<h1 style='text-align: center; font-size: 49px;'>NIFTY50 Price Predictor 📈📉💰</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; font-size: 47px;'>NIFTY50 Price Predictor 📈📉💰</h1>", unsafe_allow_html=True)
 
 # Center the NIFTY50 logo image
 st.markdown(
