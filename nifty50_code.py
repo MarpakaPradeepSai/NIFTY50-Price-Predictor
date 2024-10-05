@@ -54,8 +54,8 @@ look_back = 10
 st.write(df.describe())
 
 # Allow users to input a date range
-start_date = st.sidebar.date_input("Start Date", df['Date'].min())
-end_date = st.sidebar.date_input("End Date", df['Date'].max())
+start_date = pd.to_datetime(st.sidebar.date_input("Start Date", df['Date'].min()))
+end_date = pd.to_datetime(st.sidebar.date_input("End Date", df['Date'].max()))
 
 # Filter data based on the selected date range
 if start_date and end_date:
