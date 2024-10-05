@@ -109,7 +109,7 @@ if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-butto
     dates = stock_data.index
 
     # Display the historical data
-    st.markdown(f"### Historical Data for NIFTY50")
+    st.markdown(f"### Historical Data for NIFTY 50")
     st.dataframe(stock_data, height=400, width=1000)
 
     # Predict the next num_days business days
