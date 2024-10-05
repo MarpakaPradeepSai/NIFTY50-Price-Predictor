@@ -128,7 +128,7 @@ if st.button(f'Predict Next {num_days} Days NIFTY50 Prices', key='forecast-butto
     ax.plot(prediction_dates, predictions, label='Predicted Prices', linestyle='--', color='red')
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
-    ax.set_title('NIFTY50 Stock Prices', fontsize=10, fontweight='bold')
+    ax.set_title('NIFTY 50 Index Prices', fontsize=10, fontweight='bold')
     ax.legend()
 
     st.pyplot(fig)
