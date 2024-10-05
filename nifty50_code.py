@@ -53,7 +53,7 @@ st.markdown("<h1 style='text-align: center; font-size: 49px;'>NIFTY50 Price Pred
 st.markdown(
     """
     <div style="display: flex; justify-content: center;">
-        <img src="https://upload.wikimedia.org/wikipedia/en/3/3c/Nifty_50_Logo.png" width="560">
+        <img src="https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Nifty_50_Logo.svg/1920px-Nifty_50_Logo.svg.png" width="560">
     </div>
     """,
     unsafe_allow_html=True
