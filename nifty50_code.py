@@ -4,14 +4,16 @@ import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
+import yfinance as yf
 
 # Load the LSTM model
 model = load_model("LSTM_NIFTY_10(169.54).h5")
 
-# Load and prepare your data
+# Load the complete historical NIFTY data from Yahoo Finance
 def load_data():
-    # Replace with your actual data loading logic
-    df = pd.read_csv('your_data.csv', parse_dates=['Date'], index_col='Date')
+    # Download complete NIFTY 50 data from Yahoo Finance
+    df = yf.download("^NSEI")  # No start date specified
+    df.reset_index(inplace=True)
     return df
 
 # Function to create dataset for LSTM
@@ -52,12 +54,12 @@ look_back = 10
 st.write(df.describe())
 
 # Allow users to input a date range
-start_date = st.sidebar.date_input("Start Date", df.index.min())
-end_date = st.sidebar.date_input("End Date", df.index.max())
+start_date = st.sidebar.date_input("Start Date", df['Date'].min())
+end_date = st.sidebar.date_input("End Date", df['Date'].max())
 
 # Filter data based on the selected date range
 if start_date and end_date:
-    filtered_data = df.loc[start_date:end_date]['Close'].values.reshape(-1, 1)
+    filtered_data = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]['Close'].values.reshape(-1, 1)
     
     if len(filtered_data) > look_back:
         predictions = predict_price(filtered_data, look_back)
