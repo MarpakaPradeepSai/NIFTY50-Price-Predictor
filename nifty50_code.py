@@ -1,77 +1,70 @@
+import streamlit as st
 import numpy as np
 import pandas as pd
-import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
 import yfinance as yf
 
-# Load the LSTM model
-model = load_model("LSTM_NIFTY_10(169.54).h5")
+# Load the model
+model = load_model('LSTM_NIFTY_10(169.54).h5')
 
-# Load the complete historical NIFTY data from Yahoo Finance
-def load_data():
-    # Download complete NIFTY 50 data from Yahoo Finance
-    df = yf.download("^NSEI")  # No start date specified
-    df.reset_index(inplace=True)
-    return df
-
-# Function to create dataset for LSTM
+# Function to create dataset
 def create_dataset(dataset, look_back=1):
-    X, Y = [], []
-    for i in range(len(dataset) - look_back - 1):
+    X = []
+    for i in range(len(dataset) - look_back):
         a = dataset[i:(i + look_back), 0]
         X.append(a)
-        Y.append(dataset[i + look_back, 0])
-    return np.array(X), np.array(Y)
+    return np.array(X)
 
-# Scale data
-def scale_data(data):
+# Function to make predictions
+def predict_future(data, look_back, num_days):
+    data_scaled = scaler.transform(data.reshape(-1, 1))
+    X_input = create_dataset(data_scaled, look_back)
+    X_input = np.reshape(X_input, (X_input.shape[0], X_input.shape[1], 1))
+    
+    predictions = []
+    for _ in range(num_days):
+        pred = model.predict(X_input[-1].reshape(1, look_back, 1))
+        predictions.append(pred[0, 0])
+        X_input = np.append(X_input, pred, axis=0)
+        X_input = X_input[1:]  # Shift the input window
+
+    return scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
+
+# Set up Streamlit UI
+st.title("NIFTY50 Price Prediction")
+
+# User input for date range
+start_date = st.date_input("Start Date", value=pd.to_datetime('2020-01-01'))
+end_date = st.date_input("End Date", value=pd.to_datetime('today'))
+
+if st.button("Fetch Data"):
+    # Fetch historical data from Yahoo Finance
+    ticker = '^NSEI'  # NIFTY50 ticker symbol
+    df = yf.download(ticker, start=start_date, end=end_date)
+    df.reset_index(inplace=True)
+    st.write("Historical Data:")
+    st.write(df)
+
+    # Prepare the data
+    data = df['Close'].values
     scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = scaler.fit_transform(data)
-    return scaled_data, scaler
+    data_scaled = scaler.fit_transform(data.reshape(-1, 1))
 
-# Predict function
-def predict_price(data, look_back=10):
-    scaled_data, scaler = scale_data(data)
-    X, _ = create_dataset(scaled_data, look_back)
-    X = np.reshape(X, (X.shape[0], X.shape[1], 1))
-    
-    predictions = model.predict(X)
-    return scaler.inverse_transform(predictions)
+    look_back = 10  # Use the same look_back used during training
+    num_days = st.number_input("Enter the number of days to predict:", min_value=1, max_value=30, value=5)
 
-# Streamlit app layout
-st.title("NIFTY Stock Price Prediction")
+    if st.button("Predict"):
+        predictions = predict_future(data_scaled, look_back, num_days)
+        st.write("Predicted Prices for the next days:")
+        st.write(predictions)
 
-# Load data
-df = load_data()
-st.write("Data Loaded Successfully")
-
-# Fixed look-back period
-look_back = 10
-
-# Show data statistics
-st.write(df.describe())
-
-# Allow users to input a date range
-start_date = pd.to_datetime(st.sidebar.date_input("Start Date", df['Date'].min()))
-end_date = pd.to_datetime(st.sidebar.date_input("End Date", df['Date'].max()))
-
-# Filter data based on the selected date range
-if start_date and end_date:
-    filtered_data = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]['Close'].values.reshape(-1, 1)
-    
-    if len(filtered_data) > look_back:
-        predictions = predict_price(filtered_data, look_back)
-        
-        # Plotting the results
+        # Plotting
         plt.figure(figsize=(12, 6))
-        plt.plot(filtered_data[look_back:], label='Actual Price')
-        plt.plot(predictions, label='Predicted Price', linestyle='--')
-        plt.title('Actual vs Predicted Prices')
-        plt.xlabel('Time')
-        plt.ylabel('Stock Price')
+        plt.plot(range(len(data), len(data) + num_days), predictions, label='Predicted Future Prices', marker='o')
+        plt.title('Future Price Predictions')
+        plt.xlabel('Days')
+        plt.ylabel('NIFTY50 Price')
         plt.legend()
         st.pyplot(plt)
-    else:
-        st.error("Not enough data points to predict. Please select a different date range.")
